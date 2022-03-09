@@ -2,13 +2,15 @@ const std = @import("std");
 
 pub fn main() !void {
     var file = try std.fs.cwd().openFile("./resources/largeUF.txt", .{});
+    var buffer = std.io.bufferedReader(file.reader());
+    const reader = buffer.reader();
     defer file.close();
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
     var line_buff: [100]u8 = undefined;
-    const node_line = try file.reader().readUntilDelimiter(&line_buff, '\n');
+    const node_line = try reader.readUntilDelimiter(&line_buff, '\n');
     const nodes = try std.fmt.parseInt(usize, node_line, 10);
     std.debug.print("Nodes {d}\n", .{nodes});
 
@@ -22,7 +24,7 @@ pub fn main() !void {
         sizes[i] = 1;
     }
 
-    while (try file.reader().readUntilDelimiterOrEof(&line_buff, '\n')) |line| {
+    while (try reader.readUntilDelimiterOrEof(&line_buff, '\n')) |line| {
         var it = std.mem.tokenize(u8, line, " \n");
         const a = try std.fmt.parseInt(usize, it.next().?, 10);
         const b = try std.fmt.parseInt(usize, it.next().?, 10);
