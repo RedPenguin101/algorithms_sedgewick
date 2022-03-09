@@ -1,64 +1,75 @@
 const std = @import("std");
+const stdIn = std.io.getStdIn();
 
 pub fn main() !void {
-    var file = try std.fs.cwd().openFile("./resources/largeUF.txt", .{});
-    var buffer = std.io.bufferedReader(file.reader());
+    var buffer = std.io.bufferedReader(stdIn.reader());
     const reader = buffer.reader();
-    defer file.close();
-
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
 
     var line_buff: [100]u8 = undefined;
     const node_line = try reader.readUntilDelimiter(&line_buff, '\n');
-    const nodes = try std.fmt.parseInt(usize, node_line, 10);
-    std.debug.print("Nodes {d}\n", .{nodes});
+    var nodes = try std.fmt.parseInt(usize, node_line, 10);
+    std.debug.print("Nodes {d}:\n", .{nodes});
 
-    var qf = try allocator.alloc(usize, nodes);
-    var sizes = try allocator.alloc(usize, nodes);
-    defer allocator.free(qf);
-    defer allocator.free(sizes);
-
-    for (qf) |_, i| {
-        qf[i] = i;
-        sizes[i] = 1;
-    }
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    var qu = try new_qu(&nodes, allocator);
+    defer allocator.free(qu.id);
+    defer allocator.free(qu.sizes);
 
     while (try reader.readUntilDelimiterOrEof(&line_buff, '\n')) |line| {
         var it = std.mem.tokenize(u8, line, " \n");
         const a = try std.fmt.parseInt(usize, it.next().?, 10);
         const b = try std.fmt.parseInt(usize, it.next().?, 10);
-        join(&qf, &sizes, a, b);
+        join(qu, a, b);
     }
 
-    std.debug.print("Connected {}\n", .{connected(&qf, 0, 1)});
+    std.debug.print("Connected Components: {}\n", .{qu.count.*});
 }
 
-fn join(qf: *[]usize, sizes: *[]usize, p: usize, q: usize) void {
-    const i = root(qf, p);
-    const j = root(qf, q);
+const QU = struct { id: []usize, sizes: []usize, count: *usize };
+
+fn new_qu(nodes: *usize, allocator: std.mem.Allocator) !QU {
+    var qf = try allocator.alloc(usize, nodes.*);
+    var sizes = try allocator.alloc(usize, nodes.*);
+    var qu = QU{
+        .id = qf,
+        .sizes = sizes,
+        .count = nodes,
+    };
+    for (qu.id) |_, i| {
+        qu.id[i] = i;
+        qu.sizes[i] = 1;
+    }
+
+    return qu;
+}
+
+fn join(qu: QU, p: usize, q: usize) void {
+    const i = root(qu, p);
+    const j = root(qu, q);
     if (i == j) return;
-    const i_size = sizes.*[i];
-    const j_size = sizes.*[j];
+    const i_size = qu.sizes[i];
+    const j_size = qu.sizes[j];
 
     if (i_size < j_size) {
-        qf.*[i] = j;
-        sizes.*[j] = i_size + j_size;
+        qu.id[i] = j;
+        qu.sizes[j] = i_size + j_size;
     } else {
-        qf.*[j] = i;
-        sizes.*[i] = i_size + j_size;
+        qu.id[j] = i;
+        qu.sizes[i] = i_size + j_size;
     }
+    qu.count.* -= 1;
 }
 
-fn root(qf: *[]usize, p: usize) usize {
+fn root(qu: QU, p: usize) usize {
     var i: usize = p;
-    while (qf.*[i] != i) {
-        qf.*[i] = qf.*[qf.*[i]];
-        i = qf.*[i];
+    while (qu.id[i] != i) {
+        qu.id[i] = qu.id[qu.id[i]];
+        i = qu.id[i];
     }
     return i;
 }
 
-fn connected(qf: *[]usize, p: usize, q: usize) bool {
-    return root(qf, p) == root(qf, q);
+fn connected(qu: QU, p: usize, q: usize) bool {
+    return root(qu, p) == root(qu, q);
 }
