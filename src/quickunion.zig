@@ -1,19 +1,16 @@
 const std = @import("std");
-const N = 10;
-
-const stdin = std.io.getStdIn();
 
 pub fn main() !void {
     var file = try std.fs.cwd().openFile("./resources/largeUF.txt", .{});
     defer file.close();
 
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
     var line_buff: [100]u8 = undefined;
     const node_line = try file.reader().readUntilDelimiter(&line_buff, '\n');
     const nodes = try std.fmt.parseInt(usize, node_line, 10);
     std.debug.print("Nodes {d}\n", .{nodes});
-
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
 
     var qf = try allocator.alloc(usize, nodes);
     var sizes = try allocator.alloc(usize, nodes);
@@ -63,30 +60,3 @@ fn root(qf: *[]usize, p: usize) usize {
 fn connected(qf: *[]usize, p: usize, q: usize) bool {
     return root(qf, p) == root(qf, q);
 }
-
-test "root" {
-    var ta = std.testing.allocator;
-    var qf = try ta.alloc(usize, 5);
-    var sizes = try ta.alloc(usize, 5);
-    defer ta.free(qf);
-    defer ta.free(sizes);
-
-    for (qf) |_, i| {
-        qf[i] = i;
-        sizes[i] = 1;
-    }
-
-    try std.testing.expectEqual(root(qf, 0), 0);
-    join(&qf, &sizes, 1, 0);
-    try std.testing.expectEqual(root(qf, 1), 0);
-}
-
-//test "connect-and-join" {
-//    var qf = [_]usize{0} ** N;
-//    for (qf) |_, i| {
-//        qf[i] = i;
-//    }
-//    try std.testing.expect(!connected(&qf, 0, 1));
-//    join(&qf, 0, 1);
-//    try std.testing.expect(connected(&qf, 0, 1));
-//}
